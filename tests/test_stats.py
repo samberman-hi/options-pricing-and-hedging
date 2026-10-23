@@ -46,3 +46,22 @@ def test_moments_of_normal_sample():
     m = stats.moments(x)
     assert abs(m["skew"]) < 0.1 and abs(m["kurt"]) < 0.15
     assert m["jb_p"] > 0.001
+
+
+def test_hansen_hodrick_uniform_weights_hand_example():
+    # Same data as above, uniform weights: S = 1.25 + 2 * 0.3125 = 1.875
+    assert stats.newey_west_se([1, 2, 3, 4], lag=1, kernel="uniform") == \
+        pytest.approx(np.sqrt(1.875 / 4))
+
+
+def test_uniform_kernel_corrects_overlap_better_than_bartlett():
+    # Overlapping 21-day sums of iid returns: the true long-run variance of
+    # the window sum is 21^2 * var(r). HH at lag 20 recovers it; Bartlett
+    # recovers only ~2/3.
+    r = np.random.default_rng(5).normal(size=200_000)
+    x = np.convolve(r, np.ones(21), mode="valid")
+    true_se = np.sqrt(21**2 / x.size)
+    hh = stats.newey_west_se(x, 20, "uniform")
+    nw = stats.newey_west_se(x, 20, "bartlett")
+    assert hh == pytest.approx(true_se, rel=0.05)
+    assert nw / true_se == pytest.approx(np.sqrt(294 / 441), rel=0.05)

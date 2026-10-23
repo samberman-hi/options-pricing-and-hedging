@@ -8,17 +8,21 @@ from src import data
 
 
 def test_trailing_dividend_yield_uses_only_past_dividends():
-    idx = pd.bdate_range("2024-01-01", "2025-06-30")
+    idx = pd.bdate_range("2024-01-01", "2026-06-30")
     hist = pd.DataFrame({"Close": 100.0, "Dividends": 0.0}, index=idx)
-    hist.loc["2024-03-15", "Dividends"] = 1.0
-    hist.loc["2024-06-14", "Dividends"] = 1.0
+    for d, amt in [("2024-03-15", 1.0), ("2024-06-14", 1.0),
+                   ("2024-09-13", 1.0), ("2024-12-13", 1.0),
+                   ("2025-03-14", 2.0)]:
+        hist.loc[d, "Dividends"] = amt
     q = data.trailing_dividend_yield(hist)
     # Before the first ex-date nothing has been paid yet.
     assert q.loc["2024-03-14"] == 0.0
-    # After both ex-dates: ln(1 + 2/100).
-    assert q.loc["2024-12-31"] == pytest.approx(np.log1p(0.02))
-    # 365 days after the first ex-date it drops out of the window.
-    assert q.loc["2025-03-17"] == pytest.approx(np.log1p(0.01))
+    # After two ex-dates: ln(1 + 2/100).
+    assert q.loc["2024-07-01"] == pytest.approx(np.log1p(0.02))
+    # Only the last four payments count: 1 + 1 + 1 + 2 = 5.
+    assert q.loc["2025-03-14"] == pytest.approx(np.log1p(0.05))
+    # More than 400 days after the last payment the estimate is dropped.
+    assert q.loc["2026-06-30"] == 0.0
 
 
 def test_rate_interpolation_is_linear_and_flat_outside():

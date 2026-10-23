@@ -168,15 +168,29 @@ def spy_close_stooq() -> pd.Series:
     return df["Close"]
 
 
-def trailing_dividend_yield(hist: pd.DataFrame, window_days: int = 365
-                            ) -> pd.Series:
+def trailing_dividend_yield(hist: pd.DataFrame, n_last: int = 4,
+                            max_age_days: int = 400) -> pd.Series:
     """Continuous dividend yield estimate known at each date:
-    q_t = ln(1 + D_t / S_t) where D_t is the sum of cash dividends with
-    ex-date in the trailing `window_days` calendar days (inclusive of t)
-    and S_t is the close. Uses only information available at t."""
+    q_t = ln(1 + D_t / S_t), where D_t is the sum of the last `n_last`
+    (= four quarterly) cash dividends with ex-date on or before t and S_t
+    is the close. Uses only information available at t.
+
+    Summing the last four payments, rather than everything in a trailing
+    365-day window, avoids counting five dividends when quarterly ex-dates
+    drift by a day. (SPY's one extra distribution, Nov 2004, is still
+    included for the following year; its effect on q is ~0.05%.)
+    Payments older than `max_age_days` are ignored."""
     divs = hist["Dividends"].fillna(0.0)
-    trailing = divs.rolling(f"{window_days}D").sum()
-    return np.log1p(trailing / hist["Close"]).rename("q")
+    paid = divs[divs > 0]
+    last_n = paid.rolling(n_last, min_periods=1).sum()
+    # Forward-fill the running sum to every trading day ...
+    d = last_n.reindex(hist.index).ffill().fillna(0.0)
+    # ... but drop it if the most recent payment is too old.
+    last_date = pd.Series(paid.index, index=paid.index).reindex(
+        hist.index).ffill()
+    stale = (hist.index - last_date).dt.days > max_age_days
+    d[stale.fillna(True).to_numpy()] = 0.0
+    return np.log1p(d / hist["Close"]).rename("q")
 
 
 # --------------------------------------------------------------------------

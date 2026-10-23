@@ -32,6 +32,13 @@ Study design
       P&L = cash_T + Delta S_T - c |Delta| S_T - max(S_T - K, 0).
   Base cost c = 1 bp of traded notional; 0 and 5 bp as sensitivity.
 * Reported P&L is per option, in bp of S_0 (and relative to the premium).
+* The SPY sample is pinned to closes up to END (2026-10-22) so a fresh clone
+  reproduces the same windows.
+* Inference: windows overlap, so means and regressions use Hansen-Hodrick
+  (uniform-kernel HAC, lag 20) standard errors; see src/stats.py.
+* Because VIX overstates ATM IV by an unknown amount, the MEAN P&L is not
+  cleanly identified; we report a break-even VIX-minus-ATM spread and a
+  sensitivity table instead of claiming a premium.
 
 Decomposition (why it works)
 ----------------------------
@@ -47,8 +54,13 @@ So per rebalancing interval i (Delta t_i = days/252, Gamma_i at sigma_h):
     gamma_i = -1/2 Gamma_i S_i^2 R_i^2                  (convexity paid)
 and   total = edge + sum theta + sum gamma - costs + residual,
 with edge = premium(sigma_imp) - BSM(sigma_h) (zero for variant A) and the
-residual collecting discrete-rebalancing/higher-order terms, discrete
-dividends and interest earned on accumulated P&L.  Summing,
+residual collecting (i) the mismatch between the flat dividend yield used
+for pricing and the actual discrete dividends received (the largest part:
+windows containing an ex-date have a systematically positive residual),
+(ii) third- and higher-order terms on large moves and (iii) interest on
+accumulated P&L.  Note the "theory" regressor is built from the same
+realised returns, so its fit is a check of the second-order attribution,
+not an independent test of Black-Scholes.  Summing,
     P&L_short ~ edge + sum 1/2 Gamma S^2 (sigma_h^2 - sigma_realised^2) dt,
 the long-gamma formula of the textbooks with the sign flipped.
 
@@ -85,6 +97,9 @@ VARIANT_LABEL = {"implied": "A: implied (VIX)",
 BASE_COST = 1e-4                # 1 bp of traded notional
 COSTS = (0.0, 1e-4, 5e-4)
 HAC_LAG = 20                    # windows overlap by up to 20 days
+HAC_KERNEL = "uniform"          # Hansen-Hodrick; see src/stats.py
+END = "2026-10-22"              # last SPY close used (pins the sample)
+VIX_SPREADS = (0.0, 1.0, 2.0, 3.0, 4.0)   # assumed VIX - ATM IV, vol pts
 FFILL_LIMIT = 5
 BP = 1e4
 SOURCE = "Yahoo Finance (SPY), FRED (VIXCLS, DGS1MO)"
@@ -178,6 +193,7 @@ def load_windows() -> dict:
     """Build the (m, 22) price/dividend matrices and per-window inputs from
     the cached data only."""
     hist = data.spy_history()
+    hist = hist[hist.index <= pd.Timestamp(END)]
     close, div = hist["Close"], hist["Dividends"].fillna(0.0)
     idx = hist.index
     vix = data.vix().reindex(idx).ffill(limit=FFILL_LIMIT) / 100.0
@@ -222,7 +238,7 @@ def hedging_error(w: dict, res: HedgeResult) -> np.ndarray:
 def _summary_row(variant: str, h: int, res: HedgeResult, eps: np.ndarray,
                  S0: np.ndarray) -> dict:
     pnl = res.pnl / S0 * BP
-    mt = stats.mean_test(pnl, HAC_LAG)
+    mt = stats.mean_test(pnl, HAC_LAG, HAC_KERNEL)
     no = stats.nonoverlap_ttest(pnl, T_DAYS)
     mo = stats.moments(pnl)
     return {"variant": variant, "h": h, "n": pnl.size,
@@ -270,7 +286,7 @@ def run() -> dict:
             for c in COSTS:
                 res = hedge_pnl(w["S"], w["D"], w["r"], w["q"],
                                 w["sigma_imp"], sig_h, h, c)
-                mt = stats.mean_test(res.pnl / S0 * BP, HAC_LAG)
+                mt = stats.mean_test(res.pnl / S0 * BP, HAC_LAG, HAC_KERNEL)
                 tc_rows.append({"variant": variant, "h": h, "cost_bp": c * BP,
                                 "mean_pnl_bp": mt["mean"], "hac_t": mt["t"],
                                 "hac_p": mt["p"],
@@ -295,19 +311,34 @@ def run() -> dict:
     for v in VARIANTS:
         scaling[f"std_eps_{v}_bp"] = summary.query("variant == @v")[
             "std_eps_bp"].to_numpy()
-    scaling["theory_bp"] = np.sqrt(np.pi / 4) * vega_bp * sigma_med / np.sqrt(
-        n_rebal)
+    # Derman-Kamal per window i: sd(eps_i) ~ sqrt(pi/4) vega_i sigma_i / sqrt(N),
+    # evaluated for the oracle hedge (vega and sigma at the realised vol).
+    # The cross-sectional sd it implies is the RMS over windows (plugging in
+    # medians would understate it, because high-vol windows dominate).
+    scale_i = bsm.vega(S0, S0, tau, w["r"], w["q"], w["sigma_real"]) \
+        * w["sigma_real"] / S0 * BP
+    scaling["theory_bp"] = (np.sqrt(np.pi / 4) * np.sqrt(np.mean(scale_i**2))
+                            / np.sqrt(n_rebal))
+    # Standardised error eps_i / (vega_i sigma_i / sqrt(N)): theory says its
+    # sd is sqrt(pi/4) = 0.886 at every h.
+    scaling["std_standardised_eps_oracle"] = [
+        float(np.std(eps_all["oracle", h_] / S0 * BP
+                     / (scale_i / np.sqrt(n)), ddof=1))
+        for h_, n in zip(FREQS, n_rebal)]
     scaling.to_csv(RESULTS_DIR / "hedging_scaling.csv", index=False,
                    float_format="%.4f")
     fits = {v: scaling_fit(hs, scaling[f"std_eps_{v}_bp"].to_numpy())
             for v in VARIANTS}
+    # With N = ceil(21/h) rebalances the theoretical curve is not exactly
+    # proportional to sqrt(h); its own log-log slope is the benchmark.
+    fits["theory"] = scaling_fit(hs, scaling["theory_bp"].to_numpy())
 
     # Realised P&L vs the theoretical gamma-theta P&L (variant A, daily).
     resA = results["implied", 1]
     theory = (resA.edge + resA.theta + resA.gamma) / S0 * BP
     pnlA = resA.pnl / S0 * BP
     reg = stats.hac_ols(pnlA, np.column_stack([np.ones_like(theory), theory]),
-                        HAC_LAG)
+                        HAC_LAG, HAC_KERNEL)
     slope, slope_se = float(reg["beta"][1]), float(reg["se"][1])
     t1 = (slope - 1.0) / slope_se
 
@@ -330,8 +361,12 @@ def run() -> dict:
 
     # Does hedging less often change the MEAN P&L? Paired difference per
     # window (h = 21 minus h = 1, same option), HAC-tested.
-    paired = {v: stats.mean_test((results[v, 21].pnl - results[v, 1].pnl)
-                                 / S0 * BP, HAC_LAG) for v in VARIANTS}
+    diffs = {v: (results[v, 21].pnl - results[v, 1].pnl) / S0 * BP
+             for v in VARIANTS}
+    paired = {v: stats.mean_test(diffs[v], HAC_LAG, HAC_KERNEL)
+              for v in VARIANTS}
+    paired_no = {v: stats.nonoverlap_all_offsets(diffs[v], T_DAYS)
+                 for v in VARIANTS}
 
     # Five worst windows (variant A, daily), one per distinct episode is not
     # enforced: neighbouring start dates share most of their path.
@@ -343,7 +378,40 @@ def run() -> dict:
 
     worst = int(np.argmin(pnlA))
     rowA = summary.query("variant == 'implied' and h == 1").iloc[0]
-    prem_test = stats.mean_test(100 * resA.pnl / resA.premium, HAC_LAG)
+    prem_test = stats.mean_test(100 * resA.pnl / resA.premium, HAC_LAG,
+                                HAC_KERNEL)
+
+    # Is the mean P&L identified? VIX sits above 1-month ATM IV, so the
+    # premium is overstated. Re-run variant A (daily) selling AND hedging at
+    # sigma_imp = VIX - spread for a range of assumed spreads.
+    vega_imp = bsm.vega(S0, S0, tau, w["r"], w["q"], w["sigma_imp"])
+    breakeven_volpts = float(np.mean(resA.pnl) / np.mean(vega_imp) * 100)
+    spread_rows = []
+    for sp in VIX_SPREADS:
+        sig = np.maximum(w["sigma_imp"] - sp / 100, 0.01)
+        res = hedge_pnl(w["S"], w["D"], w["r"], w["q"], sig, sig, 1)
+        mt = stats.mean_test(res.pnl / S0 * BP, HAC_LAG, HAC_KERNEL)
+        spread_rows.append({"vix_minus_atm_volpts": sp,
+                            "mean_pnl_bp": mt["mean"], "hh_t": mt["t"],
+                            "hh_p": mt["p"]})
+    spread_tab = pd.DataFrame(spread_rows)
+    spread_tab.to_csv(RESULTS_DIR / "hedging_vix_spread_sensitivity.csv",
+                      index=False, float_format="%.4f")
+
+    # Where does the decomposition residual come from? Pricing uses a flat
+    # continuous q while the hedge receives the actual discrete dividend, so
+    # windows containing an ex-date differ systematically from those without.
+    has_div = (w["D"][:, 1:] > 0).any(axis=1)
+    resid_bp = resA.residual / S0 * BP
+    dummy_r2 = stats.hac_ols(resid_bp, np.column_stack(
+        [np.ones_like(resid_bp), has_div.astype(float)]))["r2"]
+    eps_or = eps_all["oracle", 1] / S0 * BP
+
+    # Mean reversion check for the "less hedging earns more" result:
+    # variance ratios of daily SPY total log returns over the study period.
+    rets = np.log((w["S"][:, 1] + w["D"][:, 1]) / w["S"][:, 0])
+    vr = {f"VR({q_})": float(np.var(np.convolve(rets, np.ones(q_), "valid"))
+                             / (q_ * np.var(rets))) for q_ in (2, 5, 21)}
     headline = {
         "n_windows": int(len(S0)),
         "first_t0": str(w["dates"][0].date()),
@@ -351,9 +419,9 @@ def run() -> dict:
         "cost_bp": BASE_COST * BP,
         "daily_implied": {
             "mean_pnl_bp_of_spot": rowA["mean_pnl_bp"],
-            "hac_t": rowA["hac_t"], "hac_p": rowA["hac_p"],
+            "hh_t": rowA["hac_t"], "hh_p": rowA["hac_p"],
             "mean_pnl_pct_of_premium": prem_test["mean"],
-            "pct_prem_hac_t": prem_test["t"], "pct_prem_hac_p": prem_test["p"],
+            "pct_prem_hh_t": prem_test["t"], "pct_prem_hh_p": prem_test["p"],
             "mean_premium_bp_of_spot": float(np.mean(resA.premium / S0) * BP),
             "frac_positive": float(np.mean(resA.pnl > 0)),
             "worst_t0": str(w["dates"][worst].date()),
@@ -372,8 +440,16 @@ def run() -> dict:
         "theory_ratio_sqrt5": float(np.sqrt(5)),
         "theory_ratio_sqrt_21_over_5": float(np.sqrt(21 / 5)),
         "scaling_slope": {v: fits[v] for v in VARIANTS},
+        "hac": f"{HAC_KERNEL} kernel (Hansen-Hodrick), lag {HAC_LAG}",
         "theory_inputs": {"median_vega_bp_per_vol": vega_bp,
                           "median_sigma_real": sigma_med},
+        "theory_slope_with_ceil_N": fits["theory"]["slope"],
+        "derman_kamal_rms_bp": {str(h_): float(v_) for h_, v_ in
+                                zip(FREQS, scaling["theory_bp"])},
+        "standardised_eps_sd_oracle": {
+            str(h_): float(v_) for h_, v_ in
+            zip(FREQS, scaling["std_standardised_eps_oracle"])},
+        "standardised_eps_sd_theory": float(np.sqrt(np.pi / 4)),
         "pnl_vs_theory_regression": {
             "variant": "implied", "h": 1, "slope": slope,
             "slope_hac_se": slope_se, "t_slope_eq_1": float(t1),
@@ -382,8 +458,20 @@ def run() -> dict:
         "residual_std_bp_daily_implied": float(np.std(resA.residual / S0 * BP,
                                                       ddof=1)),
         "paired_mean_diff_h21_minus_h1_bp": {
-            v: {"mean": paired[v]["mean"], "hac_t": paired[v]["t"],
-                "hac_p": paired[v]["p"]} for v in VARIANTS},
+            v: {"mean": paired[v]["mean"], "hh_t": paired[v]["t"],
+                "hh_p": paired[v]["p"],
+                "nonoverlap_p_over_21_offsets": paired_no[v]}
+            for v in VARIANTS},
+        "daily_return_variance_ratios": vr,
+        "breakeven_vix_minus_atm_volpts": breakeven_volpts,
+        "vix_spread_sensitivity": spread_rows,
+        "residual_by_exdate_daily_implied": {
+            "share_windows_with_exdate": float(has_div.mean()),
+            "mean_resid_with_exdate_bp": float(resid_bp[has_div].mean()),
+            "mean_resid_without_bp": float(resid_bp[~has_div].mean()),
+            "r2_of_exdate_dummy": float(dummy_r2),
+            "oracle_eps_mean_with_exdate_bp": float(eps_or[has_div].mean()),
+            "oracle_eps_mean_without_bp": float(eps_or[~has_div].mean())},
         "worst_windows_daily_implied": worst_table,
         "mean_sigma_imp_pct": float(100 * np.mean(w["sigma_imp"])),
         "mean_sigma_real_pct": float(100 * np.mean(w["sigma_real"])),
@@ -467,7 +555,8 @@ def _plot_decomposition(summary: pd.DataFrame, windows: pd.DataFrame) -> None:
 
 
 def _plot_scaling(scaling: pd.DataFrame, fits: dict) -> None:
-    fig, ax = plt.subplots(figsize=(8, 5.5))
+    fig, (ax, ax2) = plt.subplots(1, 2, figsize=(12, 5),
+                                  gridspec_kw={"width_ratios": [1.5, 1]})
     h = scaling["h"].to_numpy(float)
     for k, v in enumerate(VARIANTS):
         y = scaling[f"std_eps_{v}_bp"]
@@ -476,14 +565,26 @@ def _plot_scaling(scaling: pd.DataFrame, fits: dict) -> None:
                 label=f"{VARIANT_LABEL[v]}: slope {f['slope']:.2f} "
                       f"± {f['slope_se']:.2f}")
     ax.plot(h, scaling["theory_bp"], "k--", lw=1.5,
-            label="Derman–Kamal √(π/4)·vega·σ/√N (median vega, σ)")
+            label=f"Derman–Kamal √(π/4)·vega·σ/√N, N=⌈21/h⌉ "
+                  f"(RMS over windows): slope {fits['theory']['slope']:.2f}")
     ax.set_xscale("log")
     ax.set_yscale("log")
     ax.set_xticks(FREQS, [str(x) for x in FREQS])
     ax.set_xlabel("rebalancing interval h (trading days, log scale)")
     ax.set_ylabel("std of hedging error ε (bp of S₀, log scale)")
-    ax.set_title("Hedging error vs rebalancing frequency (theory slope 0.5)")
-    ax.legend(fontsize=8)
+    ax.set_title("sd of hedging error vs rebalancing interval")
+    ax.legend(fontsize=7.5)
+    ax2.plot(h, scaling["std_standardised_eps_oracle"], "o-", color=COLORS[2],
+             ms=7, label="C: oracle, sd of ε_i / (vega_i·σ_i/√N)")
+    ax2.axhline(np.sqrt(np.pi / 4), color="k", ls="--", lw=1.2,
+                label="theory √(π/4) = 0.886")
+    ax2.set_xscale("log")
+    ax2.set_xticks(FREQS, [str(x) for x in FREQS])
+    ax2.set_ylim(0, 1.1)
+    ax2.set_xlabel("rebalancing interval h (trading days, log scale)")
+    ax2.set_ylabel("sd of standardised hedging error")
+    ax2.set_title("Per-window test of the Derman–Kamal formula")
+    ax2.legend(fontsize=8, loc="lower left")
     save(fig, "09_hedging_error_scaling", SOURCE)
 
 

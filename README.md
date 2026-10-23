@@ -4,7 +4,17 @@
 
 [![tests](https://github.com/samberman-hi/options-pricing-and-hedging/actions/workflows/tests.yml/badge.svg)](https://github.com/samberman-hi/options-pricing-and-hedging/actions/workflows/tests.yml)
 
-**Headline result.** I sold a 1-month at-the-money SPY call on each of 5,465 trading days from 2005 to 2026, priced it at the VIX, and delta-hedged it daily. The hedged position earned **+40 bp of spot per option on average, about 18% of the premium** (Newey–West t = 12.7, p < 10⁻³⁰). That mean is real but it is not free money. 19% of windows lost money, the distribution has strong negative skew, and the worst window (sold 8 Oct 2008) lost **521 bp, 80% of the premium**. Window by window, the realised P&L lines up with the textbook gamma–theta formula Σ ½ΓS²(σ²Δt − R²): regression slope 0.97, not significantly different from 1 (p = 0.15), and R² of 0.91. Hedging error shrinks like √Δt only when the hedge uses the vol that is actually realised. Under that oracle hedge the log–log slope is 0.49 against a theoretical 0.5, and daily hedging leaves a 29 bp error, matching the Derman–Kamal formula's 28 bp. With a hedge vol that is actually tradable (implied or trailing realised), the slope falls to 0.27–0.29: the mis-specified vol adds an error that more frequent rebalancing cannot remove. The pricing library (Black–Scholes–Merton, CRR trees, Monte Carlo) reproduces Hull's textbook values. The SPY surface from 23 Oct 2026 shows a 1-month 90%/110% skew of 13.7 vol points, falling to 5.9 at one year.
+**Headline result.** I sold a 1-month at-the-money SPY call on each of 5,465 trading days from 2005 to 2026 and delta-hedged it to expiry. Two findings carry the study:
+- **Hedging at the true volatility works as theory predicts.** Hedging at the realised vol (an ex-post benchmark) makes the error grow like √Δt: log–log slope 0.49, against 0.48 for the theory curve. Measured window by window, the error is a stable 0.75–0.85 × vega·σ/√N at every frequency, against the Derman–Kamal √(π/4) = 0.89.
+- **With a hedge vol you can actually trade, frequent rebalancing helps less.** Using implied or trailing realised vol, the slope falls to 0.27–0.29, and daily hedging cuts the error only 1.5× relative to weekly, against roughly 2.2× when the hedge vol is right. A mis-specified vol leaves a path-dependent Γ-weighted term that rebalancing cannot remove.
+
+A second-order gamma–theta attribution, Σ ½ΓS²(σ²Δt − R²), accounts for 91% of the variance of window P&L. Most of what is left comes from modelling dividends as a flat yield.
+
+Pricing the call at the VIX, the hedged seller earned **+40 bp of spot per month**, with a Hansen–Hodrick t of 10.3. That mean is **not cleanly identified**:
+- **Break-even.** It disappears if VIX overstates the true 1-month ATM implied vol by 3.5 vol points. On the day of the option snapshot, the gap between VIX and the SPY ATM vol was about 3.5 points.
+- **Tail risk.** The worst window, sold 8 Oct 2008, lost 521 bp, 80% of the premium.
+
+The pricing library (Black–Scholes–Merton, CRR trees, Monte Carlo) reproduces Hull's textbook values. The SPY surface from 23 Oct 2026 shows a 1-month 90%/110% skew of 13.7 vol points, falling to 5.9 at one year.
 
 ---
 
@@ -20,7 +30,7 @@ All data is free and downloaded by [`src/data.py`](src/data.py), cached in `data
 
 | Data | Source | Identifier | Period used |
 |---|---|---|---|
-| SPY daily close (not dividend-adjusted) and cash dividends | Yahoo Finance via `yfinance` | `SPY` | 2004-01-02 to 2026-10-22 (last complete session) |
+| SPY daily close (not dividend-adjusted) and cash dividends | Yahoo Finance via `yfinance` | `SPY` | 2004-01-02 to 2026-10-22 (pinned in `hedging.END`) |
 | SPY option chain (all 28 listed expiries, calls and puts, 9,280 contracts) | Yahoo Finance via `yfinance` | `SPY` | **Snapshot: 2026-10-23 14:03:52 UTC (10:03 New York time), spot $760.88** |
 | Risk-free rate, hedging study | FRED | `DGS1MO` (1-month T-bill) | 2005 to 2026 |
 | Risk-free curve, surface | FRED | `DGS1MO`, `DGS3MO`, `DGS6MO`, `DGS1`, `DGS2` | latest print (21 Oct 2026, FRED publishes with a lag) |
@@ -58,10 +68,10 @@ Greeks are computed in closed form. Delta is $e^{-qT}N(d_1)$ for a call. Gamma i
 - **Fallback.** If Newton leaves the bracket [0.0001, 5] or vega vanishes, the solver falls back to Brent's method, which always converges because price rises strictly with σ.
 - **No solution.** Prices outside the no-arbitrage bounds return NaN.
 
-**Inputs for each option.**
+**Inputs for each option.** (The dividend yield is the same estimator used in the hedging study.)
 - **Time to expiry:** $T$ = time from the snapshot to 16:00 New York on the expiry date, in calendar years.
 - **Rate:** $r(T)$ is linearly interpolated from the FRED Treasury curve, converted with $r = \ln(1 + y/100)$.
-- **Dividend yield:** $q$ = trailing-12-month SPY cash dividends divided by spot, 0.99%.
+- **Dividend yield:** $q = \ln(1 + D/S)$, where $D$ is the sum of the last four SPY cash dividends and $S$ is spot, 0.99%.
 - **Forward:** $F = Se^{(r-q)T}$, and moneyness is $k = \ln(K/F)$.
 
 **Cleaning.** Each step below is counted in `results/chain_cleaning.csv`:
@@ -111,9 +121,9 @@ Each window's P&L is split into five parts: the vol edge, Σ theta ($+\tfrac12\G
 **Hedging error.** The hedging error is defined as $\varepsilon = \text{P\&L} - [V(\sigma_{imp}) - V(\sigma_{real})]$. It measures how far the result lands from the P&L Black–Scholes says you lock in if you know the realised vol. For a hedge at the true vol rebalanced $N$ times, Boyle–Emanuel and Derman–Kamal give $\mathrm{sd}(\varepsilon) \approx \sqrt{\pi/4}\,\mathcal V\sigma/\sqrt N$, so the error should grow like $\sqrt{\Delta t}$, a slope of 0.5 on a log–log plot.
 
 **Statistics.**
-- The windows overlap by up to 20 days, so means are tested with **Newey–West (HAC) standard errors, Bartlett kernel, lag 20**.
+- The windows overlap by up to 20 days, so means are tested with **Hansen–Hodrick standard errors (HAC with a uniform kernel, lag 20)**. This is the standard estimator for overlapping returns. Newey–West's Bartlett weights would capture only about two-thirds of the long-run variance at lag 20 and overstate t-stats by about 20%; a unit test checks both.
 - As a robustness check, I also run a plain t-test on the 261 non-overlapping windows.
-- The regression of P&L on the theoretical P&L uses HAC standard errors.
+- The regression of P&L on the theoretical P&L uses the same Hansen–Hodrick standard errors.
 - Normality is tested with Jarque–Bera.
 
 ## 4. Results
@@ -146,7 +156,7 @@ Each window's P&L is split into five parts: the vol edge, Σ theta ($+\tfrac12\G
 
 ### 4.2 SPY implied-volatility surface (snapshot 2026-10-23 14:03 UTC, spot $760.88)
 
-**Cleaning:** 9,280 raw contracts left 2,688 clean OTM quotes across 23 expiries, from 7 days to 2.2 years. The stale-quote filter removes the most rows, mostly deep ITM contracts that rarely trade. Newton converged on all 2,688 options, Brent was never needed, and none failed.
+**Cleaning:** 9,280 raw contracts left 2,688 clean OTM quotes across 23 expiries, from 7 days to 2.2 years. The stale-quote filter removes the most rows (2,799), mostly in-the-money and far-from-the-money contracts that rarely trade. Newton converged on all 2,688 options, Brent was never needed, and none failed.
 
 | Summary | Value |
 |---|---|
@@ -176,41 +186,50 @@ The skew is steepest at short maturities and flattens as maturity grows, falling
 
 ### 4.3 Delta-hedging a short 1-month ATM SPY call (5,465 windows, 2005-01-03 to 2026-09-23 sale dates, 1 bp costs)
 
-P&L figures are in bp of spot at sale. The average premium is 220 bp. HAC t-stats use 20 lags; the non-overlapping t-test uses 261 windows.
+P&L figures are in bp of spot at sale. The average premium is 220 bp. t-stats are Hansen–Hodrick, lag 20; the non-overlapping t-test uses 261 windows.
 
-| Hedge vol | h (days) | Mean P&L | Std | % of premium | HAC t | Non-overlap t | sd(ε) |
+| Hedge vol | h (days) | Mean P&L | Std | % of premium | t (HH) | Non-overlap t | sd(ε) |
 |---|---|---|---|---|---|---|---|
-| A: implied (VIX) | 1 (daily) | **40.0** | 66.2 | 18.4% | 12.7 | 8.9 | 54.5 |
-| A: implied (VIX) | 5 (weekly) | 45.4 | 89.6 | 20.1% | 12.1 | 9.3 | 80.0 |
-| A: implied (VIX) | 21 (initial only) | 50.1 | 147.1 | 22.3% | 8.1 | 6.1 | 131.6 |
-| B: trailing 21d RV | 1 | 38.5 | 68.5 | 17.6% | 12.1 | 7.6 | 58.1 |
-| B: trailing 21d RV | 5 | 44.2 | 91.4 | 19.5% | 11.9 | 8.8 | 82.2 |
-| C: oracle RV (look-ahead) | 1 | 36.9 | 83.0 | 17.0% | 8.8 | 7.4 | **28.8** |
-| C: oracle RV (look-ahead) | 5 | 44.2 | 99.4 | 19.8% | 10.1 | 9.1 | 69.9 |
+| A: implied (VIX) | 1 (daily) | **40.1** | 66.2 | 18.4% | 10.3 | 8.9 | 54.5 |
+| A: implied (VIX) | 5 (weekly) | 45.5 | 89.6 | 20.1% | 10.0 | 9.3 | 80.0 |
+| A: implied (VIX) | 21 (initial only) | 50.1 | 147.1 | 22.3% | 7.0 | 6.1 | 131.6 |
+| B: trailing 21d RV | 1 | 38.5 | 68.5 | 17.7% | 9.9 | 7.6 | 58.1 |
+| B: trailing 21d RV | 5 | 44.3 | 91.4 | 19.5% | 9.8 | 8.8 | 82.1 |
+| C: oracle RV (look-ahead) | 1 | 37.0 | 83.0 | 17.0% | 7.1 | 7.4 | **28.8** |
+| C: oracle RV (look-ahead) | 5 | 44.2 | 99.4 | 19.9% | 8.3 | 9.1 | 69.9 |
 
-All p-values are below 10⁻⁸. The full table, including h = 2 and h = 10, is in `results/hedging_summary.csv`.
+All means are significantly positive, with every p below 10⁻⁷. The full table is in `results/hedging_summary.csv`.
 - **Win rate:** 81% of windows make money.
-- **Shape:** skewness ranges from −0.5 to −3.1 and excess kurtosis from 7.5 to 21.5, and Jarque–Bera rejects normality everywhere.
+- **Shape:** skewness ranges from −0.5 to −3.1 and excess kurtosis from 7.6 to 21.6. Jarque–Bera rejects normality everywhere, but treat it as descriptive, since it assumes independent windows.
 
-**1. Why is the mean positive?** The decomposition (variant A, daily) answers it: **theta +123.5 bp, gamma −82.1 bp, costs −2.4 bp, residual +1.1 bp, total 40.0 bp**. The seller collects time decay priced at implied vol and pays out convexity at realised vol. Over this sample VIX averaged 19.1% and realised 1-month vol 15.5%, so theta won on average.
-- **Overstated premium.** Part of the gap is mechanical. VIX is a variance-swap rate and includes the skew, so it sits above ATM implied vol, which overstates the premium the seller actually receives (Limitations).
-- **Scope.** This study is about hedging mechanics. Measuring the volatility risk premium properly is a separate project, so I don't claim a clean premium estimate here.
+**1. Where the mean comes from, and why it is not a clean premium estimate.** The decomposition (variant A, daily) is **theta +123.5 bp, gamma −82.1 bp, costs −2.4 bp, residual +1.2 bp, total 40.1 bp**. The seller collects time decay priced at VIX and pays out convexity at realised vol, and over this sample VIX averaged 19.1% against realised 1-month vol of 15.5%. But VIX is a variance-swap rate that embeds the put skew, so it sits above the ATM implied vol at which a 1-month ATM call actually trades.
 
-**2. Theory holds window by window.** Regressing each window's realised P&L on its theoretical $\sum \tfrac12\Gamma S^2(\sigma_h^2\Delta t - R^2)$ gives:
-- slope **0.968**, HAC SE 0.022;
-- a test of slope = 1 gives t = −1.45, p = 0.15, so not rejected;
-- intercept 0.005 bp and **R² = 0.91**.
+**The mean depends on that spread.** Re-running the study with the option sold and hedged at VIX minus an assumed spread gives:
 
-The 9% left unexplained is the residual, with an sd of 20 bp. It comes mostly from third-order terms on crash days, when a −10% day makes a second-order Taylor expansion inaccurate, and from measuring gamma at the start of each day.
+| Assumed VIX − ATM IV | 0 | 1 | 2 | 3 | 4 vol pts |
+|---|---|---|---|---|---|
+| Mean P&L (bp) | 40.1 | 28.5 | 16.9 | 5.3 | −6.4 |
+| t (HH) | 10.3 | 7.4 | 4.5 | 1.4 | −1.7 |
 
-**3. Hedging error and frequency.**
-- **Oracle hedge.** Hedging at the vol that is actually realised removes the vol-mismatch term. sd(ε) then scales with slope **0.49 ± 0.02** in log h, against 0.5 in theory. Daily hedging leaves **28.8 bp** of error, against the Derman–Kamal approximation $\sqrt{\pi/4}\,\mathcal V\sigma/\sqrt N$ = 28.4 bp, and weekly hedging leaves 2.4× as much.
-- **Tradable hedges.** With implied or trailing-realised vol, the slope is only **0.29 / 0.27**, and moving from weekly to daily cuts the error by only 1.4–1.5×. When $\sigma_h \neq \sigma_{realised}$ the P&L contains $\sum\tfrac12\Gamma S^2(\sigma_h^2 - \sigma_{real}^2)\Delta t$, which depends on the path through Γ and does not shrink with rebalancing. **More frequent hedging removes the discretisation noise, not the vol bet.**
-- **Daily vs weekly.** Weekly hedging at implied vol raises the P&L sd from 66 to 90 bp. On the variance-weighted metric, daily rebalancing is clearly worth its 2.4 bp of costs at 1 bp per trade.
+The break-even spread is **3.5 vol points**. On the snapshot day the spread was about that size: VIX closed at 19.0 the evening before, and the SPY 1-month ATM vol was 15.5%. One day is not a history, but it means **this study cannot establish that delta-hedged call selling earned a premium**. Measuring that needs a history of true ATM implied vols, which is my separate volatility-risk-premium project. The robust results here are the mechanics below.
 
-**4. Mean P&L vs frequency (a marginal result).** Mean P&L *rises* slightly as hedging gets less frequent, from 40 bp daily to 50 bp for initial-hedge-only. The paired difference is +10.0 bp, HAC t = 2.1, p = 0.03, and lower costs explain only about 1.4 bp of it. One explanation is that an under-hedged short-gamma book trades against the market and so benefits from short-horizon mean reversion in SPY. I treat this as **weak evidence**: p = 0.03 among many comparisons does not survive a multiple-testing correction, and I did not test the explanation.
+**2. The gamma–theta attribution.** Regressing each window's P&L on its $\sum \tfrac12\Gamma S^2(\sigma_h^2\Delta t - R^2)$ gives:
+- slope **0.968**, HH SE 0.023;
+- a test of slope = 1 gives p = 0.17, so slope = 1 is not rejected;
+- intercept 0.08 bp, **R² = 0.91**.
 
-**5. Transaction costs.** Daily hedging pays about 2.4 bp of spot per 1 bp of cost rate. At 5 bp the daily mean falls to 30.4 bp, still significant (t = 9.7).
+This checks that the second-order Taylor attribution is complete; it is not an independent test of Black–Scholes, because the regressor uses the same realised returns as the P&L. The residual has an sd of 20 bp, and its largest single source is the dividend model. Pricing uses a flat yield $q$, but the hedge receives actual discrete dividends, so the 33% of windows that contain an ex-date have a mean residual of +20.4 bp against −8.5 bp for the rest. An ex-date dummy explains 46% of the residual variance. The remainder is third-order terms on crash days and interest on the accumulated P&L.
+
+**3. Hedging error and frequency** (Figure 9).
+- **Oracle hedge.** Hedging at the vol that is actually realised removes the average vol mismatch, leaving mostly discretisation noise. sd(ε) then scales with slope **0.49 ± 0.02** in log h, matching the theoretical curve's 0.48 (the theory slope is not exactly 0.5 because N = ⌈21/h⌉). Weekly error is 2.4× daily.
+- **Per-window check.** Standardising each window's error by its own vega·σ/√N gives an sd of **0.81, 0.79, 0.79, 0.85, 0.75** for h = 1, 2, 5, 10, 21. That is flat in h, as the √Δt law requires, and about 10% below Derman–Kamal's √(π/4) = 0.886.
+- **Why medians are misleading.** Plugging median vega and σ into the formula gives 28.4 bp, apparently matching the oracle's 28.8 bp at h = 1. That match is a coincidence. The right aggregate is the RMS over windows, which gives 42 bp, because the formula is nonlinear and high-vol windows dominate.
+- **Tradable hedges.** With implied or trailing-realised vol the slope is only **0.29 / 0.27**, and moving from weekly to daily cuts the error just 1.4–1.5×. With σ_h ≠ σ_realised the P&L contains $\sum\tfrac12\Gamma S^2(\sigma_h^2 - \sigma_{real}^2)\Delta t$, which depends on the path through Γ and does not shrink with rebalancing. **Rebalancing more often removes the discretisation noise, not the vol bet.**
+- **Daily vs weekly.** At implied vol, weekly hedging raises the P&L sd from 66 to 90 bp. Daily hedging costs only 2.4 bp at 1 bp per trade.
+
+**4. Mean P&L vs frequency is not significant.** Mean P&L rises from 40 bp with daily hedging to 50 bp with only the initial hedge. The paired difference is +10.0 bp, with an HH t of 2.07 (p = 0.04). But running the non-overlapping t-test from each of the 21 possible starting offsets gives a median p of 0.21 (range 0.05–0.76), so **I don't treat it as a finding**. It is consistent with short-horizon mean reversion in SPY over the sample (daily-return variance ratios VR(5) = 0.82, VR(21) = 0.74), which an under-hedged short-gamma book would benefit from, but those ratios are descriptive, not tested.
+
+**5. Transaction costs.** Daily hedging pays about 2.4 bp of spot per 1 bp of cost rate. At 5 bp, the VIX-priced daily mean falls to 30.5 bp.
 
 **6. Tail risk.** The worst windows are all crash episodes:
 
@@ -239,13 +258,15 @@ The 9% left unexplained is the residual, with an sd of 20 bp. It comes mostly fr
 - *Dividend yield.* q is a single trailing yield. SPY pays quarterly, so the true forward has steps. The parity diagnostic shows the effect is a few bp out to about 1 year.
 - *American exercise.* IVs use the European BSM model on American options. This is measured to be negligible at 1 month but worth up to 1.3 vol points for some 1-year puts (§4.2).
 - *SVI.* No arbitrage-free constraints are imposed beyond the parameter bounds; calendar arbitrage is checked rather than enforced, and the SVI wings are unreliable beyond the quoted strikes.
+- *SVI hold-out.* The test holds out every 5th strike, so it is an *interpolation* test between close neighbours. It shows the fit is smooth, not that the wings extrapolate. The median RMSE hides a 0.52 vol-point error on the 7-day slice, and some short-dated slices have weakly identified parameters (ρ > 0, large m).
 
 **Hedging study**
-- **VIX stands in for the 1-month ATM implied vol.** A free daily history of SPY ATM implied vol does not exist. VIX is a 30-calendar-day variance-swap rate and typically 1–3 vol points above ATM IV because of the skew. This biases the premium, and so the mean P&L, upward; it does not affect the gamma–theta mechanics or the scaling results.
+- **VIX stands in for the 1-month ATM implied vol.** A free daily history of SPY ATM implied vol does not exist. VIX is a 30-calendar-day variance-swap rate that includes the skew, so it sits above ATM IV, by about 3.5 points on the snapshot day. This makes the mean P&L unidentified (§4.3, point 1). It barely affects the mechanics: lowering the hedge vol by 2–3.5 points moves the variant-A scaling slope only from 0.285 to 0.27–0.28.
+- **Dividends.** Options are priced with a flat dividend yield, while the hedge receives discrete dividends. This is the largest part of the attribution residual. A better model would price with the known in-window dividends (escrowed-dividend spot).
 - *Execution.* The option is assumed to be sold at the VIX-implied mid with no option bid–ask cost, and the stock is traded at the close with no market impact. Costs are a flat 1 bp of notional.
 - *Contract.* The call is treated as European and cash-settled; the real SPY option would be American and physically settled. There is no early-exercise risk for a short call except around ex-dividend dates, which is not modelled.
 - *Time.* Time is measured in trading days, with 252 per year. VIX is quoted on a calendar basis, but 21/252 and 30/365 differ by under 2% in total variance.
-- *Overlap.* The 5,465 windows overlap heavily, so the effective sample is about 261 independent months. That is why HAC and non-overlapping tests are reported. The Jarque–Bera test and the scaling-slope standard error assume independence and are descriptive only.
+- *Overlap.* The 5,465 windows overlap heavily, so the effective sample is about 261 independent months. That is why Hansen–Hodrick and non-overlapping tests are reported. The Jarque–Bera test and the scaling-slope standard error assume independence and are descriptive only.
 - *Look-ahead.* Variant C uses future information and exists only as a theoretical benchmark. Variants A and B use only information available at the close on the sale date.
 
 ## 6. Reproduce in 3 commands
@@ -253,10 +274,13 @@ The 9% left unexplained is the residual, with an sd of 20 bp. It comes mostly fr
 ```bash
 pip install -r requirements.txt
 python -m src.pipeline          # downloads data on first run, rebuilds figures/ and results/ (~1 min)
-python -m pytest                # 190 unit tests (~3 s)
+python -m pytest                # 192 unit tests (~3 s)
 ```
 
-Add `--refresh-chain` to the pipeline to take a new option-chain snapshot. To re-execute the notebook, run `jupyter nbconvert --to notebook --execute --inplace notebooks/analysis.ipynb`.
+**What reproduces exactly.**
+- **Pricing and hedging:** the pricing results are deterministic. The hedging sample is pinned to closes up to 2026-10-22, so its results reproduce exactly. The only exception is if Yahoo or FRED revise history, which is rare.
+- **Surface:** Yahoo's terms don't allow redistributing the raw quotes, so the option-chain snapshot is not committed. A fresh clone therefore takes a *new* snapshot, and the surface numbers will differ from those above (see the stability check in §2).
+- **Refreshing:** add `--refresh-chain` to take a new snapshot in an existing checkout. To re-execute the notebook, run `jupyter nbconvert --to notebook --execute --inplace notebooks/analysis.ipynb`.
 
 ## Repository layout
 

@@ -57,9 +57,12 @@ def implied_vol(target: float, S: float, K: float, T: float, r: float,
     sig = initial
     for _ in range(MAX_NEWTON):
         diff = f(sig)
-        if abs(diff) < TOL:
-            return (sig, "newton") if return_method else sig
         v = float(bsm.vega(S, K, T, r, q, sig))
+        # Accept only if the price matches AND the implied step in sigma is
+        # tiny: with near-zero vega a small price error can hide a large
+        # sigma error, so a price tolerance alone is not enough.
+        if abs(diff) < TOL and v > 0 and abs(diff / v) < 1e-8:
+            return (sig, "newton") if return_method else sig
         if v < 1e-8:
             break
         step = sig - diff / v

@@ -50,10 +50,11 @@ def test_price_above_upper_bound_is_nan():
 
 
 def test_brent_fallback_round_trips():
-    # Short-dated, 30% OTM call: price ~ 0.001 and vega is tiny, so the
-    # first Newton step overshoots out of the bracket and Brent takes over.
+    # Short-dated, 30% OTM call (price ~ 0.001) started from a poor guess
+    # (sigma0 = 2%): vega there is ~0, so Newton bails and Brent takes over.
     K, T, sigma = 130.0, 0.1, 0.25
     target = float(bsm.price(S, K, T, R, Q, sigma, "call"))
-    iv, method = implied_vol(target, S, K, T, R, Q, "call", return_method=True)
+    iv, method = implied_vol(target, S, K, T, R, Q, "call", initial=0.02,
+                             return_method=True)
     assert method == "brent"
     assert iv == pytest.approx(sigma, abs=1e-6)

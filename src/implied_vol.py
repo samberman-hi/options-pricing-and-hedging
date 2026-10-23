@@ -50,10 +50,14 @@ def implied_vol(target: float, S: float, K: float, T: float, r: float,
     def f(sig: float) -> float:
         return float(bsm.price(S, K, T, r, q, sig, kind)) - target
 
-    # Brenner-Subrahmanyam style starting point, clipped to a sane range.
+    # Starting point. Away from the money use Manaster-Koehler (1982):
+    # sigma0 = sqrt(2 |ln(F/K)| / T), the inflection point of price(sigma),
+    # from which Newton converges monotonically. Near the money that is ~0,
+    # so use the Brenner-Subrahmanyam ATM approximation instead.
     if initial is None:
-        initial = math.sqrt(2.0 * math.pi / T) * target / S
-        initial = min(max(initial, 0.05), 1.5)
+        mk = math.sqrt(2.0 * abs(math.log(S / K) + (r - q) * T) / T)
+        bs = math.sqrt(2.0 * math.pi / T) * target / S
+        initial = min(max(mk if mk > 0.05 else bs, 0.05), 2.0)
     sig = initial
     for _ in range(MAX_NEWTON):
         diff = f(sig)

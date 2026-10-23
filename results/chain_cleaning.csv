@@ -1,0 +1,10 @@
+step,rows_remaining
+raw chain,9280
+"two-sided quote (bid > 0, ask > bid)",8377
+traded within 3 business days,5578
+relative spread <= 50%,5355
+T >= 7 calendar days,4670
+-0.4 <= ln(K/F) <= 0.25,4025
+out-of-the-money only,2688
+mid inside European no-arbitrage bounds,2688
+implied vol solved,2688

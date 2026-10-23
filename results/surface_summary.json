@@ -1,0 +1,33 @@
+{
+  "snapshot_utc": "2026-10-23T14:03:52+00:00",
+  "spot": 760.8800048828125,
+  "dividend_yield_q": 0.00987697377245236,
+  "r_range": [
+    0.04008572353928564,
+    0.046979001193994605
+  ],
+  "n_raw": 9280,
+  "n_clean": 2688,
+  "n_expiries_fitted": 23,
+  "atm_vol_1m_pct": 15.538359241853716,
+  "atm_vol_1y_pct": 17.59746376182296,
+  "skew_90_110_1m_volpts": 13.742157298524424,
+  "skew_90_110_1y_volpts": 5.865948815253863,
+  "svi_median_rmse_in_sample_volpts": 0.12535612380104985,
+  "svi_median_rmse_out_of_sample_volpts": 0.130706982937379,
+  "iv_solver_counts": {
+    "newton": 2688,
+    "brent": 0,
+    "failed": 0
+  },
+  "parity_median_diff_bp": -3.9735856031319905,
+  "parity_median_implied_q": 0.01112762406863526,
+  "american_minus_bsm_iv_median_abs_volpts": 0.04329457955167815,
+  "american_minus_bsm_iv_max_abs_volpts": 1.2736071879142108,
+  "american_minus_euro_tree_iv_max_abs_volpts": 1.2618316849426354,
+  "svi_slices_wing_slope_above_2": 3,
+  "calendar_arb_violations": 0,
+  "calendar_arb_grid_points_checked": 1122,
+  "calendar_arb_pairs": [],
+  "yahoo_iv_median_abs_diff_volpts": 1.1612246358091938
+}

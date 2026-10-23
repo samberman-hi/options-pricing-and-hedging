@@ -28,7 +28,7 @@ All data is free and downloaded by [`src/data.py`](src/data.py), cached in `data
 
 Yahoo Finance and the FRED CSV endpoint both worked, so the Stooq fallback was not needed. Stooq only offers dividend-adjusted prices without the dividends themselves, so `data.py` refuses to use it silently for the hedging study.
 
-**Refreshing the snapshot.** `python -m src.pipeline --refresh-chain` takes a new snapshot and rebuilds every surface figure and table. The snapshot timestamp is stored in `data/raw/spy_chain_meta.json` and `results/surface_summary.json`. Every surface number in this README refers to the snapshot above.
+**Refreshing the snapshot.** `python -m src.pipeline --refresh-chain` takes a new snapshot and rebuilds every surface figure and table. The snapshot timestamp is stored in `data/raw/spy_chain_meta.json` and `results/surface_summary.json`. Every surface number in this README refers to the snapshot above. As a stability check I re-ran the whole pipeline from a clean clone 18 minutes later, which took a new snapshot (spot $759.52, 2,704 clean quotes). The headline numbers barely moved: 1-month ATM vol went from 15.5% to 15.5%, 1-month 90/110 skew from 13.7 to 13.2 vol points, and median held-out SVI RMSE from 0.13 to 0.12. The hedging-study numbers reproduced exactly.
 
 ## 3. Method
 

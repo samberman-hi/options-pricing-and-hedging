@@ -17,6 +17,7 @@ from __future__ import annotations
 import io
 import json
 import logging
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -34,6 +35,23 @@ STOOQ_URL = "https://stooq.com/q/d/l/?s={sym}&i=d"
 # FRED Treasury constant-maturity yields used to build the risk-free curve.
 TREASURY_SERIES = {"DGS1MO": 1 / 12, "DGS3MO": 0.25, "DGS6MO": 0.5,
                    "DGS1": 1.0, "DGS2": 2.0}
+
+
+def _retry(fn, what: str, attempts: int = 5, base_wait: float = 2.0):
+    """Call fn() until it returns a non-empty result, waiting 2, 4, 8, ...
+    seconds between attempts (Yahoo rate-limits bursts with HTTP 429)."""
+    for i in range(attempts):
+        try:
+            out = fn()
+            if out is not None and len(out) > 0:
+                return out
+            log.warning("%s: empty response (attempt %d)", what, i + 1)
+        except Exception as exc:  # network / rate-limit errors
+            log.warning("%s failed (attempt %d): %s", what, i + 1, exc)
+        if i < attempts - 1:
+            time.sleep(base_wait * 2**i)
+    raise RuntimeError(f"{what}: no data after {attempts} attempts "
+                       "(Yahoo may be rate-limiting; try again later)")
 
 
 def _raw(name: str) -> Path:
@@ -125,14 +143,12 @@ def spy_history(start: str = "2004-01-01", refresh: bool = False) -> pd.DataFram
 
 
 def _spy_from_yahoo(start: str) -> pd.DataFrame | None:
+    import yfinance as yf
     try:
-        import yfinance as yf
-        h = yf.Ticker("SPY").history(start=start, auto_adjust=False,
-                                     actions=True)
-    except Exception as exc:
-        log.warning("yfinance history failed: %s", exc)
-        return None
-    if h.empty:
+        h = _retry(lambda: yf.Ticker("SPY").history(
+            start=start, auto_adjust=False, actions=True), "SPY history")
+    except RuntimeError as exc:
+        log.warning("%s", exc)
         return None
     # Drop today's bar if the US session has not closed yet: an intraday
     # "close" would be a look-ahead-free but incomplete observation.
@@ -179,14 +195,12 @@ def spy_option_chain(refresh: bool = False) -> tuple[pd.DataFrame, dict]:
     if refresh or not (path.exists() and meta_path.exists()):
         import yfinance as yf
         tk = yf.Ticker("SPY")
-        expiries = tk.options
-        if not expiries:
-            raise RuntimeError("Yahoo returned no SPY option expiries")
+        expiries = _retry(lambda: tk.options, "SPY option expiries")
         snap = datetime.now(timezone.utc)
         spot = float(tk.fast_info["last_price"])
         frames = []
         for exp in expiries:
-            ch = tk.option_chain(exp)
+            ch = _retry(lambda: tk.option_chain(exp), f"SPY chain {exp}")
             for kind, df in (("call", ch.calls), ("put", ch.puts)):
                 df = df.copy()
                 df["kind"] = kind

@@ -1,0 +1,264 @@
+{
+  "pricing": {
+    "hull_21_1_american_put_5_steps": 4.488459,
+    "hull_21_1_american_put_500_steps": 4.283021,
+    "bsm_call": 9.319738,
+    "bsm_put": 6.393699,
+    "crr_call_error_n1000": -0.001963,
+    "crr_put_error_n1000": -0.001963,
+    "crr_american_put_n1000": 6.700562,
+    "max_abs_call_premium_q0": 0.0,
+    "atm_put_premium_r4pct": 0.401268,
+    "mc_n_paths": 100000,
+    "mc_se": {
+      "plain": 0.04407,
+      "antithetic": 0.03292,
+      "control": 0.01815,
+      "antithetic+control": 0.00916
+    },
+    "mc_vrf": {
+      "plain": 1.0,
+      "antithetic": 1.79,
+      "control": 5.9,
+      "antithetic+control": 23.16
+    },
+    "mc_abs_error_in_se": {
+      "plain": 0.72,
+      "antithetic": 0.93,
+      "control": 0.64,
+      "antithetic+control": 0.97
+    }
+  },
+  "surface": {
+    "snapshot_utc": "2026-10-23T14:03:52+00:00",
+    "spot": 760.8800048828125,
+    "dividend_yield_q": 0.00987697377245236,
+    "r_range": [
+      0.04008572353928564,
+      0.046979001193994605
+    ],
+    "n_raw": 9280,
+    "n_clean": 2688,
+    "n_expiries_fitted": 23,
+    "atm_vol_1m_pct": 15.538359241853716,
+    "atm_vol_1y_pct": 17.59746376182296,
+    "skew_90_110_1m_volpts": 13.742157298524424,
+    "skew_90_110_1y_volpts": 5.865948815253863,
+    "svi_median_rmse_in_sample_volpts": 0.12535612380104985,
+    "svi_median_rmse_out_of_sample_volpts": 0.130706982937379,
+    "iv_solver_counts": {
+      "newton": 2688,
+      "brent": 0,
+      "failed": 0
+    },
+    "parity_median_diff_bp": -3.9735856031319905,
+    "parity_median_implied_q": 0.01112762406863526,
+    "american_minus_bsm_iv_median_abs_volpts": 0.04329457955167815,
+    "american_minus_bsm_iv_max_abs_volpts": 1.2736071879142108,
+    "american_minus_euro_tree_iv_max_abs_volpts": 1.2618316849426354,
+    "svi_slices_wing_slope_above_2": 3,
+    "calendar_arb_violations": 0,
+    "calendar_arb_grid_points_checked": 1122,
+    "calendar_arb_pairs": [],
+    "yahoo_iv_median_abs_diff_volpts": 1.1612246358091938
+  },
+  "hedging": {
+    "n_windows": 5465,
+    "first_t0": "2005-01-03",
+    "last_t0": "2026-09-23",
+    "cost_bp": 1.0,
+    "daily_implied": {
+      "mean_pnl_bp_of_spot": 40.108694665573516,
+      "hh_t": 10.347569049001502,
+      "hh_p": 4.29246382326153e-25,
+      "mean_pnl_pct_of_premium": 18.425117053942486,
+      "pct_prem_hh_t": 11.326684396666137,
+      "pct_prem_hh_p": 9.680001696761404e-30,
+      "mean_premium_bp_of_spot": 219.83653856778702,
+      "frac_positive": 0.8109789569990851,
+      "worst_t0": "2008-10-08",
+      "worst_pnl_bp_of_spot": -521.4367497067999,
+      "worst_pnl_pct_of_premium": -80.18763242462735
+    },
+    "std_eps_bp": {
+      "implied": {
+        "daily": 54.47377698168536,
+        "weekly": 79.98426863364233,
+        "ratio_weekly_to_daily": 1.4683077448537092
+      },
+      "forecast": {
+        "daily": 58.07520229208288,
+        "weekly": 82.14919608676941,
+        "ratio_weekly_to_daily": 1.4145313807709012
+      },
+      "oracle": {
+        "daily": 28.788515000653405,
+        "weekly": 69.88968635523466,
+        "ratio_weekly_to_daily": 2.4276933476300666
+      }
+    },
+    "theory_ratio_sqrt5": 2.23606797749979,
+    "theory_ratio_sqrt_21_over_5": 2.04939015319192,
+    "scaling_slope": {
+      "implied": {
+        "slope": 0.2855771728081131,
+        "slope_se": 0.017763446244757657,
+        "intercept": 3.965867317680261
+      },
+      "forecast": {
+        "slope": 0.26659111097164045,
+        "slope_se": 0.018082348511129363,
+        "intercept": 4.026578136937442
+      },
+      "oracle": {
+        "slope": 0.49470700786380184,
+        "slope_se": 0.021558649549310083,
+        "intercept": 3.4176540244469735
+      }
+    },
+    "hac": "uniform kernel (Hansen-Hodrick), lag 20",
+    "theory_inputs": {
+      "median_vega_bp_per_vol": 1149.4304933256612,
+      "median_sigma_real": 0.12773918171371768
+    },
+    "theory_slope_with_ceil_N": 0.4789063051900879,
+    "derman_kamal_rms_bp": {
+      "1": 41.937165059974795,
+      "2": 57.94452054933784,
+      "5": 85.94561312669656,
+      "10": 110.95530943976046,
+      "21": 192.18023331919176
+    },
+    "standardised_eps_sd_oracle": {
+      "1": 0.8061755827143987,
+      "2": 0.7928030295888747,
+      "5": 0.792970875811432,
+      "10": 0.8536726290937524,
+      "21": 0.7460396586283404
+    },
+    "standardised_eps_sd_theory": 0.8862269254527579,
+    "pnl_vs_theory_regression": {
+      "variant": "implied",
+      "h": 1,
+      "slope": 0.9680887341860815,
+      "slope_hac_se": 0.02316604531035747,
+      "t_slope_eq_1": -1.377501657550977,
+      "p_slope_eq_1": 0.16835720267637255,
+      "intercept_bp": 0.07551760342979368,
+      "r2": 0.9087332399997321
+    },
+    "residual_std_bp_daily_implied": 20.031303377606058,
+    "paired_mean_diff_h21_minus_h1_bp": {
+      "implied": {
+        "mean": 10.03740872389255,
+        "hh_t": 2.068971088805152,
+        "hh_p": 0.03854879978629072,
+        "nonoverlap_p_over_21_offsets": {
+          "p_median": 0.21060303459222623,
+          "p_min": 0.05287736373319871,
+          "p_max": 0.759107609749148
+        }
+      },
+      "forecast": {
+        "mean": 11.278692470532045,
+        "hh_t": 2.138699715907562,
+        "hh_p": 0.032459995651359756,
+        "nonoverlap_p_over_21_offsets": {
+          "p_median": 0.18174456263613714,
+          "p_min": 0.03874466615721134,
+          "p_max": 0.8853130381381593
+        }
+      },
+      "oracle": {
+        "mean": 11.379360657648673,
+        "hh_t": 2.2935901926192144,
+        "hh_p": 0.021814049261935694,
+        "nonoverlap_p_over_21_offsets": {
+          "p_median": 0.1595749870400938,
+          "p_min": 0.023916342348891513,
+          "p_max": 0.6904438756753921
+        }
+      }
+    },
+    "daily_return_variance_ratios": {
+      "VR(2)": 0.8987869212308518,
+      "VR(5)": 0.8194236168584369,
+      "VR(21)": 0.7389160092592345
+    },
+    "breakeven_vix_minus_atm_volpts": 3.4647454022299873,
+    "vix_spread_sensitivity": [
+      {
+        "vix_minus_atm_volpts": 0.0,
+        "mean_pnl_bp": 40.108694665573516,
+        "hh_t": 10.347569049001502,
+        "hh_p": 4.29246382326153e-25
+      },
+      {
+        "vix_minus_atm_volpts": 1.0,
+        "mean_pnl_bp": 28.499291364124684,
+        "hh_t": 7.440859129357395,
+        "hh_p": 1.0003257588890976e-13
+      },
+      {
+        "vix_minus_atm_volpts": 2.0,
+        "mean_pnl_bp": 16.883598657686434,
+        "hh_t": 4.456355679162529,
+        "hh_p": 8.336467732090944e-06
+      },
+      {
+        "vix_minus_atm_volpts": 3.0,
+        "mean_pnl_bp": 5.258981702918322,
+        "hh_t": 1.4011502017116577,
+        "hh_p": 0.1611691621377508
+      },
+      {
+        "vix_minus_atm_volpts": 4.0,
+        "mean_pnl_bp": -6.37791228720793,
+        "hh_t": -1.7117275165947603,
+        "hh_p": 0.08694689520302805
+      }
+    ],
+    "residual_by_exdate_daily_implied": {
+      "share_windows_with_exdate": 0.3343092406221409,
+      "mean_resid_with_exdate_bp": 20.407605396411302,
+      "mean_resid_without_bp": -8.503239629197303,
+      "r2_of_exdate_dummy": 0.463664173031589,
+      "oracle_eps_mean_with_exdate_bp": 15.343943787501361,
+      "oracle_eps_mean_without_bp": -13.739331131734158
+    },
+    "worst_windows_daily_implied": [
+      {
+        "t0": "2008-10-08",
+        "pnl_bp": -521.4367497067999,
+        "vix_at_sale": 57.53,
+        "realised_vol": 90.444243352622
+      },
+      {
+        "t0": "2008-10-07",
+        "pnl_bp": -467.0325445655969,
+        "vix_at_sale": 53.67999999999999,
+        "realised_vol": 88.70359605210277
+      },
+      {
+        "t0": "2020-02-28",
+        "pnl_bp": -441.8950384334812,
+        "vix_at_sale": 40.11,
+        "realised_vol": 90.75763656668113
+      },
+      {
+        "t0": "2020-02-27",
+        "pnl_bp": -413.69270846580304,
+        "vix_at_sale": 39.16,
+        "realised_vol": 90.09165627617396
+      },
+      {
+        "t0": "2020-03-06",
+        "pnl_bp": -393.3916255926335,
+        "vix_at_sale": 41.94,
+        "realised_vol": 91.77469730907094
+      }
+    ],
+    "mean_sigma_imp_pct": 19.11749496797804,
+    "mean_sigma_real_pct": 15.546578862219992
+  }
+}

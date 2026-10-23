@@ -1,0 +1,69 @@
+{
+  "n_windows": 5465,
+  "first_t0": "2005-01-03",
+  "last_t0": "2026-09-23",
+  "cost_bp": 1.0,
+  "daily_implied": {
+    "mean_pnl_bp_of_spot": 40.04387253078077,
+    "hac_t": 12.701948094834421,
+    "hac_p": 5.767588920493263e-37,
+    "mean_pnl_pct_of_premium": 18.387526491254903,
+    "pct_prem_hac_t": 13.79510805643782,
+    "pct_prem_hac_p": 2.727438917747341e-43,
+    "mean_premium_bp_of_spot": 219.77536300820924,
+    "frac_positive": 0.8106129917657823,
+    "worst_t0": "2008-10-08",
+    "worst_pnl_bp_of_spot": -521.4367497067999,
+    "worst_pnl_pct_of_premium": -80.18763242462735
+  },
+  "std_eps_bp": {
+    "implied": {
+      "daily": 54.49776787381038,
+      "weekly": 80.0023737091329,
+      "ratio_weekly_to_daily": 1.467993586349783
+    },
+    "forecast": {
+      "daily": 58.1003112015093,
+      "weekly": 82.16693098355094,
+      "ratio_weekly_to_daily": 1.4142253162564205
+    },
+    "oracle": {
+      "daily": 28.818841482035232,
+      "weekly": 69.90870493866207,
+      "ratio_weekly_to_daily": 2.425798586741975
+    }
+  },
+  "theory_ratio_sqrt5": 2.23606797749979,
+  "theory_ratio_sqrt_21_over_5": 2.04939015319192,
+  "scaling_slope": {
+    "implied": {
+      "slope": 0.2854872303393396,
+      "slope_se": 0.017768620664817377,
+      "intercept": 3.9662706002206853
+    },
+    "forecast": {
+      "slope": 0.26650861187288966,
+      "slope_se": 0.018092264535311892,
+      "intercept": 4.026971047871128
+    },
+    "oracle": {
+      "slope": 0.4944611149607651,
+      "slope_se": 0.02147020288413871,
+      "intercept": 3.4184717318286375
+    }
+  },
+  "theory_inputs": {
+    "median_vega_bp_per_vol": 1149.423710447224,
+    "median_sigma_real": 0.12773918171371768
+  },
+  "pnl_vs_theory_regression": {
+    "variant": "implied",
+    "h": 1,
+    "slope": 0.9681911059180947,
+    "slope_hac_se": 0.02194792230159506,
+    "t_slope_eq_1": -1.4492895338705316,
+    "p_slope_eq_1": 0.1472567426773519,
+    "intercept_bp": 0.004892224208274664,
+    "r2": 0.9083538037361835
+  }
+}

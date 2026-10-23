@@ -1,0 +1,186 @@
+{
+  "pricing": {
+    "hull_21_1_american_put_5_steps": 4.488459,
+    "hull_21_1_american_put_500_steps": 4.283021,
+    "bsm_call": 9.319738,
+    "bsm_put": 6.393699,
+    "crr_call_error_n1000": -0.001963,
+    "crr_put_error_n1000": -0.001963,
+    "crr_american_put_n1000": 6.700562,
+    "max_abs_call_premium_q0": 0.0,
+    "atm_put_premium_r4pct": 0.401268,
+    "mc_n_paths": 100000,
+    "mc_se": {
+      "plain": 0.04407,
+      "antithetic": 0.03292,
+      "control": 0.01815,
+      "antithetic+control": 0.00916
+    },
+    "mc_vrf": {
+      "plain": 1.0,
+      "antithetic": 1.79,
+      "control": 5.9,
+      "antithetic+control": 23.16
+    },
+    "mc_abs_error_in_se": {
+      "plain": 0.72,
+      "antithetic": 0.93,
+      "control": 0.64,
+      "antithetic+control": 0.97
+    }
+  },
+  "surface": {
+    "snapshot_utc": "2026-10-23T14:03:52+00:00",
+    "spot": 760.8800048828125,
+    "dividend_yield_q": 0.00987697377245236,
+    "r_range": [
+      0.04008572353928564,
+      0.046979001193994605
+    ],
+    "n_raw": 9280,
+    "n_clean": 2688,
+    "n_expiries_fitted": 23,
+    "atm_vol_1m_pct": 15.538359241853716,
+    "atm_vol_1y_pct": 17.59746376182296,
+    "skew_90_110_1m_volpts": 13.742157298524424,
+    "skew_90_110_1y_volpts": 5.865948815253863,
+    "svi_median_rmse_in_sample_volpts": 0.12535612380104985,
+    "svi_median_rmse_out_of_sample_volpts": 0.130706982937379,
+    "iv_solver_counts": {
+      "newton": 2688,
+      "brent": 0,
+      "failed": 0
+    },
+    "parity_median_diff_bp": -3.9735856031319905,
+    "parity_median_implied_q": 0.01112762406863526,
+    "american_minus_bsm_iv_median_abs_volpts": 0.04329457955167815,
+    "american_minus_bsm_iv_max_abs_volpts": 1.2736071879142108,
+    "american_minus_euro_tree_iv_max_abs_volpts": 1.2618316849426354,
+    "svi_slices_wing_slope_above_2": 3,
+    "calendar_arb_violations": 0,
+    "calendar_arb_grid_points_checked": 1122,
+    "calendar_arb_pairs": [],
+    "yahoo_iv_median_abs_diff_volpts": 1.1612246358091938
+  },
+  "hedging": {
+    "n_windows": 5465,
+    "first_t0": "2005-01-03",
+    "last_t0": "2026-09-23",
+    "cost_bp": 1.0,
+    "daily_implied": {
+      "mean_pnl_bp_of_spot": 40.04387253078077,
+      "hac_t": 12.701948094834421,
+      "hac_p": 5.767588920493263e-37,
+      "mean_pnl_pct_of_premium": 18.387526491254903,
+      "pct_prem_hac_t": 13.79510805643782,
+      "pct_prem_hac_p": 2.727438917747341e-43,
+      "mean_premium_bp_of_spot": 219.77536300820924,
+      "frac_positive": 0.8106129917657823,
+      "worst_t0": "2008-10-08",
+      "worst_pnl_bp_of_spot": -521.4367497067999,
+      "worst_pnl_pct_of_premium": -80.18763242462735
+    },
+    "std_eps_bp": {
+      "implied": {
+        "daily": 54.49776787381038,
+        "weekly": 80.0023737091329,
+        "ratio_weekly_to_daily": 1.467993586349783
+      },
+      "forecast": {
+        "daily": 58.1003112015093,
+        "weekly": 82.16693098355094,
+        "ratio_weekly_to_daily": 1.4142253162564205
+      },
+      "oracle": {
+        "daily": 28.818841482035232,
+        "weekly": 69.90870493866207,
+        "ratio_weekly_to_daily": 2.425798586741975
+      }
+    },
+    "theory_ratio_sqrt5": 2.23606797749979,
+    "theory_ratio_sqrt_21_over_5": 2.04939015319192,
+    "scaling_slope": {
+      "implied": {
+        "slope": 0.2854872303393396,
+        "slope_se": 0.017768620664817377,
+        "intercept": 3.9662706002206853
+      },
+      "forecast": {
+        "slope": 0.26650861187288966,
+        "slope_se": 0.018092264535311892,
+        "intercept": 4.026971047871128
+      },
+      "oracle": {
+        "slope": 0.4944611149607651,
+        "slope_se": 0.02147020288413871,
+        "intercept": 3.4184717318286375
+      }
+    },
+    "theory_inputs": {
+      "median_vega_bp_per_vol": 1149.423710447224,
+      "median_sigma_real": 0.12773918171371768
+    },
+    "pnl_vs_theory_regression": {
+      "variant": "implied",
+      "h": 1,
+      "slope": 0.9681911059180947,
+      "slope_hac_se": 0.02194792230159506,
+      "t_slope_eq_1": -1.4492895338705316,
+      "p_slope_eq_1": 0.1472567426773519,
+      "intercept_bp": 0.004892224208274664,
+      "r2": 0.9083538037361835
+    },
+    "residual_std_bp_daily_implied": 20.07818597816516,
+    "paired_mean_diff_h21_minus_h1_bp": {
+      "implied": {
+        "mean": 10.032505505518511,
+        "hac_t": 2.1169938058271387,
+        "hac_p": 0.03426037349560693
+      },
+      "forecast": {
+        "mean": 11.270415621921929,
+        "hac_t": 2.198400494877318,
+        "hac_p": 0.027920578468192028
+      },
+      "oracle": {
+        "mean": 11.371146743554238,
+        "hac_t": 2.3900955088825535,
+        "hac_p": 0.01684399185669433
+      }
+    },
+    "worst_windows_daily_implied": [
+      {
+        "t0": "2008-10-08",
+        "pnl_bp": -521.4367497067999,
+        "vix_at_sale": 57.53,
+        "realised_vol": 90.444243352622
+      },
+      {
+        "t0": "2008-10-07",
+        "pnl_bp": -467.0325445655969,
+        "vix_at_sale": 53.67999999999999,
+        "realised_vol": 88.70359605210277
+      },
+      {
+        "t0": "2020-02-28",
+        "pnl_bp": -441.8950384334812,
+        "vix_at_sale": 40.11,
+        "realised_vol": 90.75763656668113
+      },
+      {
+        "t0": "2020-02-27",
+        "pnl_bp": -413.69270846580304,
+        "vix_at_sale": 39.16,
+        "realised_vol": 90.09165627617396
+      },
+      {
+        "t0": "2020-03-06",
+        "pnl_bp": -393.3916255926335,
+        "vix_at_sale": 41.94,
+        "realised_vol": 91.77469730907094
+      }
+    ],
+    "mean_sigma_imp_pct": 19.11749496797804,
+    "mean_sigma_real_pct": 15.546578862219992
+  }
+}

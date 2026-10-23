@@ -328,6 +328,19 @@ def run() -> dict:
     windows.to_csv(RESULTS_DIR / "hedging_windows.csv", index=False,
                    float_format="%.5f")
 
+    # Does hedging less often change the MEAN P&L? Paired difference per
+    # window (h = 21 minus h = 1, same option), HAC-tested.
+    paired = {v: stats.mean_test((results[v, 21].pnl - results[v, 1].pnl)
+                                 / S0 * BP, HAC_LAG) for v in VARIANTS}
+
+    # Five worst windows (variant A, daily), one per distinct episode is not
+    # enforced: neighbouring start dates share most of their path.
+    worst5 = np.argsort(pnlA)[:5]
+    worst_table = [{"t0": str(w["dates"][i].date()), "pnl_bp": float(pnlA[i]),
+                    "vix_at_sale": float(100 * w["sigma_imp"][i]),
+                    "realised_vol": float(100 * w["sigma_real"][i])}
+                   for i in worst5]
+
     worst = int(np.argmin(pnlA))
     rowA = summary.query("variant == 'implied' and h == 1").iloc[0]
     prem_test = stats.mean_test(100 * resA.pnl / resA.premium, HAC_LAG)
@@ -366,6 +379,14 @@ def run() -> dict:
             "slope_hac_se": slope_se, "t_slope_eq_1": float(t1),
             "p_slope_eq_1": float(2 * stats.sps.norm.sf(abs(t1))),
             "intercept_bp": float(reg["beta"][0]), "r2": reg["r2"]},
+        "residual_std_bp_daily_implied": float(np.std(resA.residual / S0 * BP,
+                                                      ddof=1)),
+        "paired_mean_diff_h21_minus_h1_bp": {
+            v: {"mean": paired[v]["mean"], "hac_t": paired[v]["t"],
+                "hac_p": paired[v]["p"]} for v in VARIANTS},
+        "worst_windows_daily_implied": worst_table,
+        "mean_sigma_imp_pct": float(100 * np.mean(w["sigma_imp"])),
+        "mean_sigma_real_pct": float(100 * np.mean(w["sigma_real"])),
     }
     headline = json.loads(json.dumps(headline, default=float))
     (RESULTS_DIR / "hedging_summary.json").write_text(
